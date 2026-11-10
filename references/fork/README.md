@@ -20,6 +20,8 @@
 
 Здесь `origin` — канонический репозиторий, `fork` — этот форк; проверьте `git remote -v`.
 
+После `git fetch` и перед `git merge origin/main` просмотрите изменения upstream (`git log -p main..origin/main`), особенно новый исполняемый код: импорты, сетевые и записывающие вызовы.
+
 ```bash
 git fetch origin && git fetch fork
 git switch main
