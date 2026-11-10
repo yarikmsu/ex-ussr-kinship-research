@@ -19,17 +19,23 @@
 
 ## Обновление из канонического репозитория
 
-Здесь `origin` — канонический репозиторий, `fork` — этот форк; проверьте `git remote -v`.
-
-После `git fetch` и перед `git merge origin/main` просмотрите изменения upstream (`git log -p main..origin/main`), особенно новый исполняемый код: импорты, сетевые и записывающие вызовы.
+Здесь `origin` — этот форк, `upstream` — канонический репозиторий; проверьте `git remote -v`. В копии, клонированной из форка, `upstream` добавляется один раз:
 
 ```bash
-git fetch origin && git fetch fork
+git remote add upstream https://github.com/DenisSergeevitch/ex-ussr-kinship-research.git
+```
+
+Обновление из форка: `git pull --ff-only`.
+
+Чтобы влить изменения канонического репозитория, после `git fetch` и перед `git merge upstream/main` просмотрите их (`git log -p main..upstream/main`). Особенно внимательно — новый исполняемый код: импорты, сетевые и записывающие вызовы.
+
+```bash
+git fetch origin && git fetch upstream
 git switch main
-git merge --ff-only fork/main
-git merge origin/main
+git merge --ff-only origin/main
+git merge upstream/main
 python3 -m unittest discover -s tests
-git push fork main
+git push origin main
 ```
 
 Ветку форка не перезаписывать: без `--force` и без `gh repo sync --force`.
