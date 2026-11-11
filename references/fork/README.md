@@ -8,7 +8,8 @@
 - `techniques.md` (если есть) — технические приёмы работы с браузером, просмотрщиками и сервисами.
 - `evals/fork-lessons.yaml` — кейсы для содержательной проверки дополнений. Это не автоматические тесты.
 - `contributing.md` — как уроки из исследований попадают в дополнения.
-- `scripts/upsert_register.py` и его тесты — строгое обновление реестров дела из JSON; `--stamp-now` ставит время добавляемых строк по часам системы. Это единственный скрипт форка.
+- `scripts/upsert_register.py` и его тесты — строгое обновление реестров дела из JSON; `--stamp-now` ставит время добавляемых строк по часам системы (UTC, ISO 8601, как `register_search.py`).
+- `scripts/privacy_scan.py` и его тесты — проверка исходящего текста по реестрам дела; замер скорости — `tests/bench_privacy_scan.py`. Других скриптов у форка нет.
 - `scripts/check_gedcom.py` — основной скрипт с одной правкой форка: предупреждение, когда связь по рождению в древе (`PEDI birth` или `FAMC` без `PEDI`) расходится с `biological_legal_household` (`references/fork/gedcom.md`). При слиянии обновлений сохраняйте функции `names_biological`, `role_of` и `non_biological`, их вызов и текст предупреждения в `check_registers`, а также тесты с `non_biological` в имени и их помощники `set_father_rows` и `role_review` (`tests/test_check_gedcom.py`).
 
 ## Приоритет
