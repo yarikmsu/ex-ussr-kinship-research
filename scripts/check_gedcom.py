@@ -309,6 +309,53 @@ def read_register(path: Path, required: set[str], errors: list[str]) -> list[dic
     return rows
 
 
+_PERSON = r"(?: (?:parent|father|mother|родитель|отец|мать))?"
+_YES = r"(?: ?[:=] ?(?:yes|да))?"
+_YES_NO = r"(?: ?[:=] ?(?:yes|no|да|нет))?"
+# Часть значения, которая называет биологическую связь: «biological», «родной отец», «биологическая: да».
+BIOLOGICAL_PART = re.compile(
+    r"(?:biological|birth|natural|по рождению|биологическ(?:ая|ий|ое|ие)|кровн(?:ая|ый|ое|ые)|родн(?:ая|ой|ое|ые))"
+    + _PERSON + _YES)
+# Часть, которая называет известную роль, совместимую с биологической связью («legal: no» тоже).
+# Отчима и мачехи здесь нет: рядом с биологической связью это противоречие, о нём нужно предупредить.
+ROLE_PART = re.compile(
+    r"(?:legal|household|adoptive|adopted|adoption|foster|guardian"
+    r"|юридическ\w*|бытов\w*|приемн\w*|усыновител\w*|усыновлен\w*|опекун\w*)" + _PERSON + _YES_NO)
+# Части значения: «;», «,», «/», «|», «+», «&», «-», «and», «и».
+ROLE_SEPARATORS = re.compile(r"\s*(?:[;,/|+&-]|\band\b|\bи\b)\s*")
+
+
+def names_biological(value: str) -> bool:
+    """Значение называет биологическую связь: одна часть — биологическая, остальные — известные роли.
+
+    «biological; legal» и «biological and legal» — биологическая. «not biological», «biological?»,
+    «biological, unconfirmed» и «biological (DNA)» — нет: неизвестная часть или оговорка дают
+    предупреждение, а не молчание.
+    """
+    parts = [" ".join(part.split()) for part in ROLE_SEPARATORS.split(value.casefold().replace("ё", "е"))]
+    parts = [part for part in parts if part]
+    return (any(BIOLOGICAL_PART.fullmatch(part) for part in parts)
+            and all(BIOLOGICAL_PART.fullmatch(part) or ROLE_PART.fullmatch(part) for part in parts))
+
+
+def role_of(row: dict[str, str]) -> str:
+    return row.get("biological_legal_household") or ""  # read_csv уже убрал пробелы
+
+
+def non_biological(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Строки пары с заполненной ролью, если ни одна установленная строка не называет связь биологической.
+
+    Правка форка: так родная связь в древе не подтверждает молча отчима, мачеху или приёмного родителя.
+    Решают установленные строки (single-source и выше); в предупреждение идут и более слабые строки
+    с ролью, например опровергнутая биологическая. Если установленных строк нет, о паре уже сообщает
+    ошибка статуса.
+    """
+    established = [r for r in rows if r["status"] in ESTABLISHED]
+    if not established or any(names_biological(role_of(r)) for r in established):
+        return []
+    return [r for r in rows if role_of(r)]
+
+
 def check_registers(records: list[Node], case_dir: Path, errors: list[str], warnings: list[str]) -> None:
     register_errors: list[str] = []
     person_rows = read_register(case_dir / "person-register.csv", {"person_id"}, register_errors)
@@ -383,6 +430,9 @@ def check_registers(records: list[Node], case_dir: Path, errors: list[str], warn
                                 "Сверка родительских связей этого ребёнка пропущена. См. gedcom.md.")
                 exported.update((parent, person_of[child]) for parent in parents)
                 continue
+            # Другие значения PEDI уже ушли в ветку qualified выше: здесь связь по рождению —
+            # PEDI birth или ссылка без PEDI, которую программы обычно читают так же.
+            pedigree = "PEDI birth" if any(link.first("PEDI") is not None for link in links) else "без PEDI"
             for parent in parents:
                 exported.add((parent, person_of[child]))
                 found = [r for r in relations if r["relationship_type"] == "parent-of"
@@ -392,6 +442,15 @@ def check_registers(records: list[Node], case_dir: Path, errors: list[str], warn
                 elif not any(r["status"] in ESTABLISHED for r in found):
                     errors.append(f"{record.xref}: {parent} parent-of {person_of[child]} в реестре со статусом "
                                   f"{', '.join(sorted({r['status'] for r in found}))}, ниже single-source")
+                marked = non_biological(found)
+                if marked:
+                    roles = ", ".join(f"{r['relationship_id'] or 'без ID'} ({role_of(r)}, {r['status'] or 'без статуса'})"
+                                      for r in marked)
+                    warnings.append(f"{record.xref} CHIL {child}: связь {parent} parent-of {person_of[child]} "
+                                    f"в древе дана как связь по рождению ({pedigree}), а в реестре не названа "
+                                    f"биологической — {roles}. Сверьте роль родителя: если связь не биологическая, "
+                                    "смените PEDI или покажите её отдельной семьёй; если биологическая — запишите "
+                                    "роль словами из fork/gedcom.md.")
     in_tree = set(person_of.values())
     for r in relations:
         key = (r["person_a_id"], r["person_b_id"])

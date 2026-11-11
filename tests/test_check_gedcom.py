@@ -304,6 +304,113 @@ class RegisterTest(GedcomCase):
                 self.assertTrue(any("P-0002 parent-of P-0003 нет" in e for e in result["errors"]), result)
                 self.assertEqual(result["warnings"], [], result)
 
+    def set_father_rows(self, *rows: tuple[str, str, str]) -> None:
+        """Пишет реестр связей заново: супруги, мать и строки отца (relationship_id, роль, статус)."""
+        path = self.case / "relationship-register.csv"
+        header = path.read_text(encoding="utf-8").splitlines(keepends=True)[0]
+        path.write_text(header, encoding="utf-8")
+        self.relation("R-0001", "P-0001", "spouse-of", "P-0002", "single-source")
+        self.relation("R-0003", "P-0002", "parent-of", "P-0003", "single-source")
+        for rel_id, household, status in rows:
+            self.add("relationship-register.csv", relationship_id=rel_id, person_a_id="P-0001",
+                     relationship_type="parent-of", person_b_id="P-0003",
+                     biological_legal_household=household, status=status)
+
+    def role_review(self, famc: str, head: str = HEAD_551) -> tuple[dict, list[str]]:
+        result = self.check(gedcom(FAMILY.replace("1 FAMC @F1@\n", famc), head), case_dir=self.case)
+        return result, [w for w in result["warnings"] if "не названа биологической" in w]
+
+    def test_birth_pedigree_with_non_biological_register_row_needs_review(self) -> None:
+        for household, flagged in (("legal", True), ("household", True), (" legal ", True),
+                                   ("biological; legal", False), ("", False), ("   ", False)):
+            for head, pedigree in ((HEAD_551, "birth"), (Version7Test.HEAD_7, "BIRTH")):
+                with self.subTest(household=household, pedigree=pedigree):
+                    self.set_father_rows(("R-0002", household, "single-source"))
+                    result, review = self.role_review(f"1 FAMC @F1@\n2 PEDI {pedigree}\n", head)
+                    self.assertEqual(result["errors"], [], result)
+                    self.assertEqual(len(review), int(flagged), result)
+                    if flagged:
+                        self.assertIn(f"R-0002 ({household.strip()}, single-source)", review[0])
+                        self.assertIn("PEDI birth", review[0])
+                        self.assertIn("отдельной семьёй", review[0])
+                        self.assertNotIn("R-0003", review[0])
+
+    def test_non_biological_reads_whole_parts_of_the_value(self) -> None:
+        flagged = ("non-biological", "not biological", "небиологическая", "не биологическая",
+                   "legal; biological unknown", "biological: no; legal: yes", "biological?",
+                   "adoptive", "unknown", "юридическая", "отчим", "-",
+                   "biological, unconfirmed", "biological / unknown", "biological; ?",
+                   "биологическая, предположительно", "biological|hypothesis", "biological (unconfirmed)",
+                   "biological (DNA)", "мать родная", "отчим; биологический", "stepfather and biological",
+                   "биологический; отчим", "мачеха, родная мать")
+        biological = ("biological", "BIOLOGICAL; legal", "Natural", "birth", "biological parent",
+                      "биологическая", "Биологическая, юридическая", "кровный", "родной отец",
+                      "household / biological", "biological and legal", "биологическая и юридическая",
+                      "biological+legal", "biological-legal", "biological: yes; legal: yes", "biological=yes",
+                      "биологическая: да", "по рождению", "биологические", "legal | biological",
+                      "biological  parent", "родная мать", "biological; приёмный; опекун",
+                      "biological: yes; legal: no", "biological; household: no", "biological & legal",
+                      "biological: yes; legal: no; household: no", "biological; foster", "biological; guardian",
+                      "биологическая; юридическая: нет")
+        for household in flagged + biological:
+            with self.subTest(household=household):
+                self.set_father_rows(("R-0002", household, "single-source"))
+                result, review = self.role_review("1 FAMC @F1@\n2 PEDI birth\n")
+                self.assertEqual(result["errors"], [], result)
+                self.assertEqual(len(review), int(household in flagged), result)
+
+    def test_non_biological_counts_only_established_rows(self) -> None:
+        cases = ((("R-0002", "biological", "contradicted"), ("R-0004", "legal", "single-source")),
+                 (("R-0002", "biological", "hypothesis"), ("R-0004", "legal", "corroborated")),
+                 (("R-0002", "biological", "single-source"), ("R-0004", "legal", "single-source")))
+        for rows, flagged in zip(cases, (True, True, False)):
+            with self.subTest(rows=rows):
+                self.set_father_rows(*rows)
+                result, review = self.role_review("1 FAMC @F1@\n2 PEDI birth\n")
+                self.assertEqual(result["errors"], [], result)
+                self.assertEqual(len(review), int(flagged), result)
+                if flagged:
+                    self.assertIn("R-0004 (legal, ", review[0])
+                    self.assertIn(f"R-0002 (biological, {rows[0][2]})", review[0])
+        self.set_father_rows(("R-0002", "legal", "hypothesis"))
+        result, review = self.role_review("1 FAMC @F1@\n2 PEDI birth\n")
+        self.assertTrue(any("ниже single-source" in e for e in result["errors"]), result)
+        self.assertEqual(review, [], result)
+
+    def test_non_biological_reports_weaker_rows_when_established_rows_name_none(self) -> None:
+        cases = ((("R-0002", "", "single-source"), ("R-0004", "biological", "contradicted")),
+                 (("R-0002", "", "single-source"), ("R-0004", "отчим", "hypothesis")),
+                 (("R-0002", "", "single-source"), ("R-0004", "legal", "single-source")))
+        for rows in cases:
+            with self.subTest(rows=rows):
+                self.set_father_rows(*rows)
+                result, review = self.role_review("1 FAMC @F1@\n2 PEDI birth\n")
+                self.assertEqual(result["errors"], [], result)
+                self.assertEqual(len(review), 1, result)
+                self.assertIn(f"R-0004 ({rows[1][1]}, {rows[1][2]})", review[0])
+                self.assertNotIn("R-0002", review[0])
+        for rows in ((("R-0002", "", "single-source"),),
+                     (("R-0002", "legal", "single-source"), ("R-0004", "biological", "single-source")),
+                     (("R-0002", "biological", "single-source"), ("R-0004", "legal", "hypothesis"))):
+            with self.subTest(rows=rows):
+                self.set_father_rows(*rows)
+                self.assertEqual(self.role_review("1 FAMC @F1@\n2 PEDI birth\n")[1], [])
+
+    def test_link_without_pedigree_with_non_biological_row_needs_review(self) -> None:
+        for head in (HEAD_551, Version7Test.HEAD_7):
+            with self.subTest(head=head):
+                self.set_father_rows(("R-0002", "legal", "single-source"))
+                result, review = self.role_review("1 FAMC @F1@\n", head)
+                self.assertEqual(result["errors"], [], result)
+                self.assertEqual(len(review), 1, result)
+                self.assertIn("без PEDI", review[0])
+                self.set_father_rows(("R-0002", "biological", "single-source"))
+                self.assertEqual(self.role_review("1 FAMC @F1@\n", head)[1], [])
+        self.set_father_rows(("R-0002", "legal", "single-source"))
+        result, review = self.role_review("1 FAMC @F1@\n2 PEDI adopted\n")
+        self.assertEqual(review, [], result)
+        self.assertTrue(any("этого ребёнка пропущена" in w for w in result["warnings"]), result)
+
     def test_qualified_parent_link_requires_review_for_that_child(self) -> None:
         self.relation("R-0001", "P-0001", "spouse-of", "P-0002", "single-source")
         self.add("relationship-register.csv", relationship_id="R-0002", person_a_id="P-0001",
