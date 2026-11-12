@@ -3,8 +3,15 @@
 
 Неизвестный столбец, пустой, повторный или окружённый пробелами ID и
 непростое значение — ошибка до записи, а не молчаливая потеря данных.
-Обновление меняет только переданные поля. Запись атомарная, под той же
-блокировкой, что и у register_search.py, и только вне папки навыка.
+Обновление меняет только переданные поля; исключение — пометка о дате
+регистрации в reliability_notes, которая убирается, когда строке передают
+настоящую дату captured_at. Запись атомарная, под той же блокировкой, что
+и у register_search.py, и только вне папки навыка.
+С --stamp-now пустое поле времени в добавляемых строках журнала поисков
+и реестра артефактов заполняется по часам системы в UTC, ISO 8601 — в том
+же формате, что у register_search.py. В reliability_notes такой строки
+реестра артефактов дописывается, что captured_at — дата регистрации.
+С --stamp-now пустое время в обновлении существующей строки её время не стирает.
 """
 
 from __future__ import annotations
@@ -19,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # `python -I` omits the script folder
 
 from research_common import (SourceError, atomic_bytes, configure_utf8_stdio, outside_skill, read_json,
-                             state_lock)
+                             state_lock, timestamp)
 
 REGISTERS = frozenset({
     "person-register.csv",
@@ -29,6 +36,10 @@ REGISTERS = frozenset({
     "search-log.csv",
 })
 LOCK_NAME = ".register-search.lock"
+# Поле времени по ключевому столбцу шапки: так реестр узнаётся при любом имени файла.
+STAMP_COLUMNS: dict[str, str] = {"search_id": "timestamp", "artifact_id": "captured_at"}
+# Время из часов — это время регистрации, а не получения материала.
+REGISTRATION_NOTE = "Дата исходного получения неизвестна; captured_at — дата регистрации."
 
 
 class UnknownColumnsError(ValueError):
@@ -105,6 +116,63 @@ def merge(header: list[str], existing: list[dict[str, str]],
     return added, updated, unchanged
 
 
+def drop_stale_notes(header: list[str], existing: list[dict[str, str]],
+                     rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Строке реестра артефактов передали настоящую дату captured_at, а reliability_notes нет: пометка,
+    что captured_at — дата регистрации, больше не верна и убирается из старого текста."""
+    if header[0] != "artifact_id" or "reliability_notes" not in header:
+        return rows
+    by_id = {row[header[0]]: row for row in existing}
+    cleaned = []
+    for values in rows:
+        current = by_id.get(values[header[0]])
+        date = values.get("captured_at", "")
+        if (current is not None and date and date != current.get("captured_at") and "reliability_notes" not in values
+                and REGISTRATION_NOTE in current.get("reliability_notes", "")):
+            notes = current["reliability_notes"].replace(REGISTRATION_NOTE, "")
+            values = {**values, "reliability_notes": " ".join(notes.split())}
+        cleaned.append(values)
+    return cleaned
+
+
+def keep_stamps(header: list[str], existing: list[dict[str, str]],
+                rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """С --stamp-now пустое время значит «поставь время», а не «сотри»: у существующей строки его не трогают.
+
+    Если время строки осталось от --stamp-now, пометка о дате регистрации в reliability_notes тоже
+    остаётся: иначе повтор того же JSON выдал бы время регистрации за дату получения.
+    """
+    column = STAMP_COLUMNS.get(header[0])
+    by_id = {row[header[0]]: row for row in existing}
+    kept = []
+    for values in rows:
+        values = dict(values)
+        current = by_id.get(values[header[0]])
+        if current is not None and column:
+            if values.get(column) == "":
+                del values[column]
+            notes = values.get("reliability_notes")
+            if (column == "captured_at" and column not in values and notes is not None
+                    and REGISTRATION_NOTE in current.get("reliability_notes", "") and REGISTRATION_NOTE not in notes):
+                values["reliability_notes"] = " ".join(filter(None, [notes, REGISTRATION_NOTE]))
+        kept.append(values)
+    return kept
+
+
+def stamp_added(header: list[str], rows: list[dict[str, str]], added: list[str]) -> None:
+    """Ставит текущее время в пустое поле времени добавленных строк."""
+    column = STAMP_COLUMNS.get(header[0])
+    if column not in header:
+        return
+    added_ids = set(added)
+    now = timestamp()
+    for row in rows:
+        if row[header[0]] in added_ids and not row[column]:
+            row[column] = now
+            if column == "captured_at" and "reliability_notes" in row:  # как в register_search.py
+                row["reliability_notes"] = " ".join(filter(None, [row["reliability_notes"], REGISTRATION_NOTE]))
+
+
 def save_register(csv_path: Path, header: list[str], rows: list[dict[str, str]]) -> None:
     stream = io.StringIO(newline="")
     writer = csv.DictWriter(stream, fieldnames=header)
@@ -113,19 +181,29 @@ def save_register(csv_path: Path, header: list[str], rows: list[dict[str, str]])
     atomic_bytes(csv_path, stream.getvalue().encode("utf-8"))
 
 
-def upsert_rows(csv_path: Path, rows: list[dict[str, object]], *, dry_run: bool = False) -> UpsertResult:
+def merge_into(csv_path: Path, rows: list[dict[str, object]],
+               stamp_now: bool) -> tuple[list[str], list[dict[str, str]], UpsertResult]:
+    header, existing = read_register(csv_path)
+    normalized = drop_stale_notes(header, existing, normalize_rows(header, rows))
+    if stamp_now:
+        normalized = keep_stamps(header, existing, normalized)
+    added, updated, unchanged = merge(header, existing, normalized)
+    if stamp_now:
+        stamp_added(header, existing, added)
+    return header, existing, UpsertResult(tuple(added), tuple(updated), tuple(unchanged))
+
+
+def upsert_rows(csv_path: Path, rows: list[dict[str, object]], *, dry_run: bool = False,
+                stamp_now: bool = False) -> UpsertResult:
     """Сливает строки в реестр по значению первого столбца шапки."""
     csv_path = outside_skill(csv_path)
     if dry_run:
-        header, existing = read_register(csv_path)
-        added, updated, unchanged = merge(header, existing, normalize_rows(header, rows))
-        return UpsertResult(tuple(added), tuple(updated), tuple(unchanged))
+        return merge_into(csv_path, rows, stamp_now)[2]
     with state_lock(csv_path.parent / LOCK_NAME):
-        header, existing = read_register(csv_path)
-        added, updated, unchanged = merge(header, existing, normalize_rows(header, rows))
-        if added or updated:
+        header, existing, result = merge_into(csv_path, rows, stamp_now)
+        if result.added or result.updated:
             save_register(csv_path, header, existing)
-    return UpsertResult(tuple(added), tuple(updated), tuple(unchanged))
+    return result
 
 
 def parse_args() -> argparse.Namespace:
@@ -134,6 +212,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--register", required=True, help="Имя реестра, например person-register.csv")
     parser.add_argument("--input", required=True, help="JSON-массив объектов со столбцами реестра")
     parser.add_argument("--dry-run", action="store_true", help="Показать итог без записи")
+    parser.add_argument("--stamp-now", action="store_true",
+                        help="Заполнить пустое время добавляемых строк (timestamp, captured_at) "
+                             "по часам системы: UTC, ISO 8601; для captured_at дописать в reliability_notes, "
+                             "что это дата регистрации")
     return parser.parse_args()
 
 
@@ -147,7 +229,8 @@ def main() -> int:
         rows = read_json(args.input)
         if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
             raise ValueError("ожидается JSON-массив объектов")
-        result = upsert_rows(Path(args.case_dir).expanduser() / args.register, rows, dry_run=args.dry_run)
+        result = upsert_rows(Path(args.case_dir).expanduser() / args.register, rows, dry_run=args.dry_run,
+                             stamp_now=args.stamp_now)
     except (OSError, ValueError, csv.Error, SourceError) as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 2
