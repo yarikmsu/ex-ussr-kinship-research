@@ -27,6 +27,7 @@ The skill's instructions are written in Russian, but **the agent talks to you in
 - **Government services.** Choose an official civil-registration or archive request route, checking eligibility and how the result is delivered ([government portals](references/government-portals.md)).
 - **Final report.** A complete HTML report is the default deliverable, with each relationship laid out edge by edge, contradictions, failed searches and concrete next steps. PDF is an optional export only when you explicitly request it.
 - **Targeted indexed-record research.** Find relevant FamilySearch books by place or DGS through an existing lawful browser session, view specific records, and retain only evidence fragments permitted by the source. Local helpers search relatives, witnesses and name variants in saved fragments, preserving their context and file checksums. [Workflow and coverage limits](references/familysearch-indexes.md).
+- **Local table indexes.** Search user-supplied CSV and XLSX tables using explicit name variants, and group rows by selected fields for review. Results retain file hash and row locations and do not establish identities or relationships. XLSX support requires optional `openpyxl` and `defusedxml`. [Instructions and limitations](references/table-indexes.md).
 - **Connected FamilySearch MCP.** Use a connected server for structured searches, profiles, relatives and sources, and authorized tree changes with explicit scope and read-back. Keep indexed search separate from unindexed scan reading, and check the connector's actual browser, privacy and write capabilities. [Workflow and access limits](references/familysearch-mcp.md).
 - **WWI source search.** Search GWAR reports, hospital, award and prisoner-of-war records by person or locality, compare settlement spellings across saved cards to decode a distorted place name, then locate the source image. [Workflow](references/ww1-search.md). Both helpers feed the existing artifact register and search log; they do not establish identities or kinship automatically.
 
@@ -123,6 +124,7 @@ assets/                          case intake, CSV registers, final report templa
                                  photos README template, research-state template, HTML report template (report.template.html)
 scripts/                         init_case.py, hash_artifact.py, audit_evidence.py, build_pdf.py
                                  familysearch.py, gwar.py, register_search.py, scan_montage.py (needs Pillow)
+                                 htr_search.py (fuzzy name search in recognized page text)
                                  check_gedcom.py (optional GEDCOM lint), and shared local analysis modules
 evals/discovery-and-logic.yaml   trigger and reasoning test cases
 tests/                           unit tests (python3 -m unittest discover -s tests)

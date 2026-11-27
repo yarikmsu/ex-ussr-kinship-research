@@ -1,5 +1,47 @@
 # Release history
 
+## 1.56.0 — 2026-11-26
+
+- Consolidate coverage ranges and independent-reading snapshots into existing guidance, and generalize checks for research reports, revision columns and viewer captures ([#334](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/334), [#335](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/335), [#337](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/337)).
+- Add optional local table-index matching/grouping with source provenance, bounded parsing and explicit identity limits ([#336](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/336)).
+- Qualify academic-library, regional-periodical and UaRoots research routes, using general examples and actual access/coverage limits ([#338](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/338), [#339](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/339)).
+- Trace Soviet POW-card references to their original lists while keeping identifiers, annotations, event dates, copied information and unresolved conflicts separate ([#340](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/issues/340)).
+
+## 1.55.0 — 2026-11-25
+
+- Clarify autonomous targeted research in a provided browser session while preserving actual source/tool restrictions and the existing access, copying and privacy boundaries ([#325](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/325)).
+- Qualify Bashkortostan finding-aid coverage and Yandex index roles; use searchable inventories to locate records without treating their descriptions as the records themselves ([#326](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/326), [#327](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/327)).
+- Add selected official-dataset, Senate-announcement, book, Finnish newspaper, Turkestan and German travel/emigration routes with provenance, access, privacy and coverage limits ([#328](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/328), [#329](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/329), [#330](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/330), [#331](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/331), [#332](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/332)).
+
+## 1.54.0 — 2026-11-24
+
+- Extend the source catalogue with selected archival, community, historical-reference and emigration routes. Distinguish institutional records, derivative indexes, forum testimony and photographic context, with attributed access and coverage limits ([#322](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/322)).
+- Qualify Nizhny Novgorod, Kostroma and Perm portal access and copy-use observations, distinguish military text cards from viewed document images, and resolve kinship words from the narrator's actual context ([#323](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/323)).
+
+## 1.53.0 — 2026-11-23
+
+- Add the Kavkazsky kalendar settlement-list route, distinguishing official bibliographic provenance, third-party copies and the sections and access actually checked ([#316](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/316), [#314](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/issues/314)).
+- Consider delayed civil registration beyond the event year, and coordinate given-name and patronymic variants as identity hypotheses. Use general examples and retain the limits of negative searches and identity evidence ([#317](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/317), [#318](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/318)).
+- Coordinate requests sharing an affected source limit, and record journal times from the clock while preserving the separate meaning and uncertainty of source dates ([#319](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/319), [#320](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/320)).
+
+## 1.52.0 — 2026-11-22
+
+- Add optional local screening of recognized PAGE/ALTO/JSON/TXT page text, with fuzzy term matching, retained alternatives, explicit unread inputs and partial-failure reporting. Verify candidate records against their images ([#309](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/309)).
+- Follow useful references and language versions from biographical articles, and choose metrical-book sections and maternal-family locations from the evidence available ([#310](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/310), [#313](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/313)).
+- Expand Baltic/German and interwar Polish biographical routes with explicit provenance, access and coverage limits ([#311](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/311), [#312](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/312)).
+- Add selected regional finding aids, supplementary record types and an Armenian tax-list route. Check actual pagination boundaries and compare like-for-like file digests ([#314](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/issues/314)).
+
+## 1.51.0 — 2026-11-21
+
+- Check damaged Cyrillic in saved HTML before using an empty local search as evidence, recovering original bytes when available. Record GWAR viewer, card and TLS observations for the affected route and client ([#306](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/306)).
+- Add a contributor-maintained archive-directory route, with a verified homepage link and provider-specific checks for actual holdings and online access ([#307](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/307)).
+
+## 1.50.0 — 2026-11-20
+
+- Distinguish a surname-only catalogue description from evidence identifying the requester, and revise candidates when linked document roles resolve the ambiguity ([#299](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/299)).
+- Add НІБУ and archival.name source routes, qualify Rahvusarhiiv copy-order guidance, and preserve dated observations about source fields and search behavior with stated access and coverage limits ([#300](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/300), [#301](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/301), [#302](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/302)).
+- Consider relevant conscription records for people described as civilians, and compare birth and later name forms as identity hypotheses ([#303](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/303), [#304](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/304)).
+
 ## 1.49.0 — 2026-11-19
 
 - Check stated reply destinations within authorized case correspondence, and coordinate browser targets and shared focus during parallel research ([#292](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/292), [#293](https://github.com/DenisSergeevitch/ex-ussr-kinship-research/pull/293)).
